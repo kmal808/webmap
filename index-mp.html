@@ -48,6 +48,7 @@
 		<meta
 			name="viewport"
 			content="initial-scale=1,maximum-scale=1,user-scalable=no" />
+		<script src="https://unpkg.com/deck.gl@~5.2.0/deckgl.min.js"></script>
 		<link
 			href="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.css"
 			rel="stylesheet" />
@@ -74,36 +75,37 @@
 				font-family: 'Open Sans', sans-serif;
 			}
 		</style>
-		<div id="map"></div>
+		<div id="container" style="width: 100vw; height: 100vh">
+			<div id="map"></div>
 
-		<div id="menu">
-			<input
-				id="satellite-streets-v12"
-				type="radio"
-				name="rtoggle"
-				value="satellite"
-				checked="checked" />
-			<!-- See a list of Mapbox-hosted public styles at -->
-			<!-- https://docs.mapbox.com/api/maps/styles/#mapbox-styles -->
-			<label for="satellite-streets-v12">satellite streets</label>
-			<input id="light-v11" type="radio" name="rtoggle" value="light" />
-			<label for="light-v11">light</label>
-			<input id="dark-v11" type="radio" name="rtoggle" value="dark" />
-			<label for="dark-v11">dark</label>
-			<input id="streets-v12" type="radio" name="rtoggle" value="streets" />
-			<label for="streets-v12">streets</label>
-			<input id="outdoors-v12" type="radio" name="rtoggle" value="outdoors" />
-			<label for="outdoors-v12">outdoors</label>
+			<div id="menu">
+				<input
+					id="satellite-streets-v12"
+					type="radio"
+					name="rtoggle"
+					value="satellite"
+					checked="checked" />
+				<!-- List of available map styles -->
+				<!-- https://docs.mapbox.com/api/maps/styles/#mapbox-styles -->
+				<label for="satellite-streets-v12">satellite streets</label>
+				<input id="light-v11" type="radio" name="rtoggle" value="light" />
+				<label for="light-v11">light</label>
+				<input id="dark-v11" type="radio" name="rtoggle" value="dark" />
+				<label for="dark-v11">dark</label>
+				<input id="streets-v12" type="radio" name="rtoggle" value="streets" />
+				<label for="streets-v12">streets</label>
+				<input id="outdoors-v12" type="radio" name="rtoggle" value="outdoors" />
+				<label for="outdoors-v12">outdoors</label>
+			</div>
 		</div>
 		<script>
 			mapboxgl.accessToken =
 				'pk.eyJ1Ijoia21hbDgwOCIsImEiOiJjbGxldjU1aXkwbTI3M25vYmc0d2ZmbWJ3In0.KRNb7vH9B0ZcN2uaCYPt0A'
 			const map = new mapboxgl.Map({
 				container: 'map', // container ID
-				// Choose from Mapbox's core styles, or make your own style with Mapbox Studio
-				stylee: 'mapbox://styles/mapbox/satellite-streets-v12', // style URL
-				center: [-2.81361, 36.77271], // starting position [lng, lat]
-				zoom: 13, // starting zoom
+				style: 'mapbox://styles/mapbox/satellite-streets-v12', // style URL
+				center: [-158.085831, 21.346945], // starting position [lng, lat]
+				zoom: 13,
 			})
 
 			const layerList = document.getElementById('menu')
@@ -115,6 +117,18 @@
 					map.setStyle('mapbox://styles/mapbox' + layerId)
 				}
 			}
+
+			const deckgl = new deck.DeckGL({
+				container: 'container',
+				longitude: -158.085831,
+				latitude: 21.346945,
+				zoom: 12,
+				layers: [
+					new deck.ScatterplotLayer({
+						data: [{ position: [-158.085831, 21.346945], text: 'Hello World' }],
+					}),
+				],
+			})
 		</script>
 	</body>
 </html>
