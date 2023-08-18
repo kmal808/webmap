@@ -1,0 +1,1055 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta charset="utf-8" />
+		<title></title>
+		<meta
+			name="viewport"
+			content="initial-scale=1,maximum-scale=1,user-scalable=no" />
+		<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+		<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
+		<link
+			href="https://api.mapbox.com/mapbox-gl-js/v2.8.2/mapbox-gl.css"
+			rel="stylesheet" />
+		<script src="https://api.mapbox.com/mapbox-gl-js/v2.8.2/mapbox-gl.js"></script>
+		<script src="https://npmcdn.com/@turf/turf/turf.min.js"></script>
+
+		<script
+			type="text/javascript"
+			src="https://cdn.datatables.net/1.12.1/js/jquery.dataTables.min.js"></script>
+		<script
+			type="text/javascript"
+			src="https://cdn.datatables.net/1.12.1/js/dataTables.bootstrap4.min.js"></script>
+
+		<link
+			href="https://cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/4.5.2/css/bootstrap.css"
+			rel="stylesheet" />
+		<link
+			href="https://cdn.datatables.net/1.12.1/css/dataTables.bootstrap4.min.css"
+			rel="stylesheet" />
+
+		<style>
+			body {
+				margin: 0;
+				padding: 0;
+			}
+			#map {
+				position: absolute;
+				top: 0;
+				bottom: 0;
+				width: 100%;
+			}
+			table {
+				font-family: arial, sans-serif;
+				/* border-collapse: collapse;
+  width: 100%; */
+				margin: 0 auto;
+				width: 100%;
+				clear: both;
+				border-collapse: collapse;
+				table-layout: fixed;
+				word-wrap: break-word;
+			}
+
+			td,
+			th {
+				/* border: 1px solid #DCDCDC	; */
+				text-align: left;
+				padding: 8px;
+			}
+
+			.modal {
+				display: none; /* Hidden by default */
+				position: fixed; /* Stay in place */
+				z-index: 1; /* Sit on top */
+				padding-top: 10px; /* Location of the box */
+				padding-bottom: 10px; /* Location of the box */
+				left: 0;
+				top: 0;
+				width: 100%; /* Full width */
+				height: 100%; /* Full height */
+				overflow: auto; /* Enable scroll if needed */
+				background-color: rgb(0, 0, 0); /* Fallback color */
+				background-color: rgba(0, 0, 0, 0.4); /* Black w/ opacity */
+			}
+
+			/* Modal Content */
+			.modal-content {
+				background-color: #fefefe;
+				margin: auto;
+				padding: 20px;
+				border: 1px solid #888;
+				width: 75%;
+			}
+
+			/* The Close Button */
+			.close {
+				color: #aaaaaa;
+				float: right;
+				font-size: 28px;
+				font-weight: bold;
+			}
+
+			.close:hover,
+			.close:focus {
+				color: #000;
+				text-decoration: none;
+				cursor: pointer;
+			}
+
+			#exposure {
+				position: absolute;
+				z-index: 400;
+				/* width: 100px; */
+				bottom: 95px;
+				margin-left: 10px;
+				background-color: white;
+			}
+
+			#hazard {
+				position: absolute;
+				z-index: 400;
+				/* width: 100px; */
+				bottom: 120px;
+				margin-left: 10px;
+				background-color: white;
+				margin-bottom: 10px; /* Location of the box */
+			}
+
+			#intersect {
+				position: absolute;
+				z-index: 400;
+				/* width: 100px; */
+				bottom: 50px;
+				margin-left: 10px;
+				background-color: white;
+				border-color: #0166ff;
+				/* color: white; */
+				color: #0166ff;
+
+				font-size: 14px;
+			}
+			#intersect:hover {
+				background-color: #0166ff;
+				color: white;
+			}
+
+			.table-striped > tbody > tr:nth-child(odd) > td,
+			.table-striped > tbody > tr:nth-child(odd) > th {
+				background-color: white;
+			}
+
+			.table-striped > tbody > tr:nth-child(even) > td,
+			.table-striped > tbody > tr:nth-child(even) > th {
+				background-color: #bce8f1;
+			}
+
+			.table th,
+			.table td {
+				font-size: 12px;
+			}
+		</style>
+	</head>
+	<body>
+		<div id="myModal" class="modal">
+			<!-- Modal content -->
+			<div id="modal-body" class="modal-content">
+				<span class="close">&times;</span>
+			</div>
+		</div>
+		<div id="map"></div>
+		<select class="form-control-sm" id="hazard">
+			<option value="Find_Haz">Choose Hazard</option>
+			<option value="5yr">5 year QC</option>
+			<option value="25yr">25 year QC</option>
+			<option value="100yr">100 year QC</option>
+		</select>
+		<select class="form-control-sm" id="exposure">
+			<option value="Find">Choose Exposure</option>
+			<option value="bldgs">Buildings</option>
+			<option value="population">Population</option>
+		</select>
+
+		<button class="btn info" id="intersect">Intersect</button>
+
+		<script>
+			mapboxgl.accessToken =
+				'pk.eyJ1Ijoia21hbDgwOCIsImEiOiJjbGxldjU1aXkwbTI3M25vYmc0d2ZmbWJ3In0.KRNb7vH9B0ZcN2uaCYPt0A'
+			const map = new mapboxgl.Map({
+				container: 'map', // container ID
+				style: 'mapbox://styles/mapbox/streets-v11', // style URL
+				center: [121.04511, 14.64735], // starting position [lng, lat]
+				zoom: 16, // starting zoom
+			})
+
+			map.on('load', () => {
+				document
+					.getElementById('exposure')
+					.addEventListener('change', onChangeExpo)
+				document
+					.getElementById('hazard')
+					.addEventListener('change', onChangeHaz)
+				document
+					.getElementById('intersect')
+					.addEventListener('click', onIntersect)
+
+				function onIntersect() {
+					const div = document.getElementById('modal-body')
+					// const div = document.getElementById('example');
+
+					// // ✅ Change (replace) the text with HTML
+					var val = document.getElementById('exposure').value
+					let hazard = document.getElementById('hazard').value
+					if (hazard != 'Find_Haz' && val != 'Find') {
+						let first_row = ''
+						let second_row = ''
+						let third_row = ''
+						let fourth_row = ''
+						let fifth_row = ''
+						let txt = ''
+						if (val == 'bldgs') {
+							txt = hazard + ' Flood Hazard Intersected to Buildings'
+							first_row = 'Building Name'
+							second_row = 'Building Area'
+							third_row = 'Intersection with All Flood Hazard (Area)'
+							fourth_row = 'Percentage of Exposed Building'
+							fifth_row = 'Exposure Score'
+							all_intersect = dict[hazard]
+						}
+						if (val == 'population') {
+							// alert('wew')
+							txt = hazard + ' Flood Hazard Intersected to Population'
+							first_row = 'Barangay Name'
+							second_row = 'Barangay Area'
+							third_row = 'Population Affected by All Flood Hazard (Area)'
+							fourth_row = 'Percentage of Exposed Population'
+							fifth_row = 'Exposure Score'
+							all_intersect = dict2[hazard]
+						}
+						// if (val == "Find"){
+						//   all_intersect = undefined
+						// }
+
+						if (all_intersect != undefined) {
+							table =
+								'<b>' +
+								txt +
+								'</b><table id="example" class="table table-striped table-bordered" style="width:100%">'
+							// var table = "<table id='example' class='display' style='width:100%'> <thead>";
+							table +=
+								`<thead><tr>
+    <th style="background-color:#0166ff; color:#FFFFFF">` +
+								first_row +
+								`</th>
+    <th style="background-color:#0166ff; color:#FFFFFF">` +
+								second_row +
+								`</th>
+    <th style="background-color:#0166ff; color:#FFFFFF">` +
+								third_row +
+								`</th>
+    <th style="background-color:#0166ff; color:#FFFFFF">` +
+								fourth_row +
+								`</th>
+    <th style="background-color:#0166ff; color:#FFFFFF">` +
+								fifth_row +
+								`</th>
+    </tr>
+  </thead>
+  <tbody>`
+
+							for (var i = 0; i < all_intersect.length; i++) {
+								var properties = all_intersect[i].properties
+								// console.log(properties)
+								table += `<tr>
+                <td>${properties.Name}</td>
+                <td>${separator(properties['Area'])}</td>
+                <td>${separator(properties['All Hazard'])}</td>
+                <td>${properties['Percentage of Exposed']}%</td>   
+                <td>${properties['Exposure Score']}</td>
+              </tr>`
+
+								// }
+							}
+
+							table += '</tbody></table>'
+							// document.getElementById("demoB").innerHTML = table;
+							div.innerHTML = table
+							modal.style.display = 'block'
+
+							let color = 'purple'
+							if (source.includes('pop_intersect')) {
+								color = 'green'
+							}
+
+							// if(intersect_layer == null || outline_layer == null){
+							// console.log(source)
+
+							if (map.getLayer(source) == undefined) {
+								// alert(source)
+
+								intersect_layer = map.addLayer({
+									id: source,
+									type: 'fill',
+									source: source,
+									paint: {
+										'fill-color': color,
+										'fill-opacity': 1,
+									},
+								})
+
+								outline_layer = map.addLayer({
+									id: 'line_' + source,
+									type: 'line',
+									source: source,
+									paint: {
+										'line-color': 'red',
+										'line-width': 3,
+									},
+								})
+							}
+						}
+					} else {
+						alert('Pick Options First!')
+						all_intersect = undefined
+					}
+					// $(document).ready(function () {
+					//     $('#example').DataTable({
+					//         pagingType: 'full_numbers',
+					//     });
+					// });
+					$(document).ready(function () {
+						$('#example').dataTable()
+					})
+				}
+
+				let intersect_data
+				let intersect_data2
+				let url = ''
+				let all_intersect
+				let bldg_ajax
+				let pop_ajax
+				let source
+				let haz_type = document.getElementById('hazard').value
+				function onChangeHaz() {
+					var exposure = document.getElementById('exposure').value
+					var hazards = document.getElementById('hazard').value
+					let url = ''
+					let pop_url = ''
+					ajaxData(exposure, hazards)
+					if (hazards != '100yr' && hazards != 'Find_Haz') {
+						url =
+							'https://upri-noah.s3.ap-southeast-1.amazonaws.com/test/bldg_haz_intersect_' +
+							hazards +
+							'.geojson'
+						pop_url =
+							'https://upri-noah.s3.ap-southeast-1.amazonaws.com/test/popu_haz_intersect_' +
+							hazards +
+							'.geojson'
+					} else {
+						url =
+							'https://upri-noah.s3.ap-southeast-1.amazonaws.com/test/bldg_haz_intersect.geojson'
+						pop_url =
+							'https://upri-noah.s3.ap-southeast-1.amazonaws.com/test/popu_haz_intersect.geojson'
+					}
+					if (exposure == 'bldgs') {
+						source = 'bldg_intersect_' + hazards
+					}
+					if (exposure == 'population') {
+						source = 'pop_intersect_' + hazards
+						url = pop_url
+					}
+
+					if (map.getLayer('5yr') != undefined) {
+						map.removeLayer('5yr')
+					}
+					if (map.getLayer('25yr') != undefined) {
+						map.removeLayer('25yr')
+					}
+					if (map.getLayer('100yr') != undefined) {
+						map.removeLayer('100yr')
+					}
+					if (map.getLayer('bldg_intersect_5yr') != undefined) {
+						map.removeLayer('bldg_intersect_5yr')
+						map.removeLayer('line_bldg_intersect_5yr')
+					}
+					if (map.getLayer('bldg_intersect_25yr') != undefined) {
+						map.removeLayer('bldg_intersect_25yr')
+						map.removeLayer('line_bldg_intersect_25yr')
+					}
+					if (map.getLayer('bldg_intersect_100yr') != undefined) {
+						map.removeLayer('bldg_intersect_100yr')
+						map.removeLayer('line_bldg_intersect_100yr')
+					}
+					if (map.getLayer('pop_intersect_5yr') != undefined) {
+						map.removeLayer('pop_intersect_5yr')
+						map.removeLayer('line_pop_intersect_5yr')
+					}
+					if (map.getLayer('pop_intersect_25yr') != undefined) {
+						map.removeLayer('pop_intersect_25yr')
+						map.removeLayer('line_pop_intersect_25yr')
+					}
+					if (map.getLayer('pop_intersect_100yr') != undefined) {
+						map.removeLayer('pop_intersect_100yr')
+						map.removeLayer('line_pop_intersect_100yr')
+					}
+
+					if (hazards) {
+						if (map.getLayer(hazards) == undefined) {
+							haz_layer = map.addLayer({
+								id: hazards,
+								type: 'fill',
+								source: hazards,
+								// 'paint': {
+								// 'fill-color': 'green',
+								// 'fill-opacity': 0.5
+								// }
+								paint: {
+									'fill-color': [
+										'match',
+										['get', 'Var'],
+										1,
+										'yellow',
+										2,
+										'orange',
+										3,
+										'red',
+										/* other */ '#ccc',
+									],
+									'fill-opacity': 0.5,
+								},
+							})
+						}
+					}
+					if (map.getSource(source) == undefined) {
+						map.addSource(source, {
+							type: 'geojson',
+							data: url,
+						})
+					}
+				}
+				let dict = {}
+				let dict2 = {}
+
+				function ajaxData(exposure, hazards) {
+					let url = ''
+					let pop_url = ''
+					if (hazards != '100yr' && hazards != 'Find_Haz') {
+						url =
+							'https://upri-noah.s3.ap-southeast-1.amazonaws.com/test/bldg_haz_intersect_' +
+							hazards +
+							'.geojson'
+						pop_url =
+							'https://upri-noah.s3.ap-southeast-1.amazonaws.com/test/popu_haz_intersect_' +
+							hazards +
+							'.geojson'
+					} else {
+						url =
+							'https://upri-noah.s3.ap-southeast-1.amazonaws.com/test/bldg_haz_intersect.geojson'
+						pop_url =
+							'https://upri-noah.s3.ap-southeast-1.amazonaws.com/test/popu_haz_intersect.geojson'
+					}
+					if (exposure == 'bldgs') {
+						source = 'bldg_intersect_' + hazards
+						let hasKey = hazards in dict
+						if (!hasKey) {
+							// if (bldg_ajax == undefined){
+							intersect_data = $.ajax({
+								url: url,
+								dataType: 'json',
+								success: console.log('new test'),
+								error: function (xhr) {
+									alert(xhr.statusText)
+								},
+							})
+							$.when(intersect_data).done(function () {
+								bldg_ajax = intersect_data.responseJSON.features
+								dict[hazards] = bldg_ajax
+								console.log('ah ', url)
+							})
+
+							if (map.getSource(source) == undefined) {
+								map.addSource(source, {
+									type: 'geojson',
+									data: url,
+								})
+							}
+						}
+					}
+					if (exposure == 'population') {
+						source = 'pop_intersect_' + hazards
+						// if (pop_ajax == undefined){
+						let hasKey2 = hazards in dict2
+						if (!hasKey2) {
+							intersect_data2 = $.ajax({
+								url: pop_url,
+								dataType: 'json',
+								success: console.log('new test'),
+								error: function (xhr) {
+									alert(xhr.statusText)
+								},
+							})
+							$.when(intersect_data2).done(function () {
+								pop_ajax = intersect_data2.responseJSON.features
+								dict2[hazards] = pop_ajax
+								console.log(pop_ajax)
+							})
+
+							if (map.getSource(source) == undefined) {
+								map.addSource(source, {
+									type: 'geojson',
+									data: pop_url,
+								})
+							}
+						}
+					}
+				}
+				function onChangeExpo() {
+					var exposure = document.getElementById('exposure').value
+					var hazards = document.getElementById('hazard').value
+
+					ajaxData(exposure, hazards)
+					if (exposure == 'bldgs') {
+						if (map.getLayer('bldg') == undefined) {
+							exposure_layer = map.addLayer({
+								id: 'bldg',
+								type: 'fill',
+								source: 'bldg',
+								paint: {
+									'fill-color': 'black',
+									'fill-opacity': 1,
+								},
+							})
+						}
+					}
+
+					if (exposure == 'population') {
+						if (map.getLayer('popu') == undefined) {
+							population_layer = map.addLayer({
+								id: 'popu',
+								type: 'fill',
+								source: 'popu',
+								paint: {
+									'fill-color': '#556B2F',
+									'fill-opacity': 0.5,
+								},
+							})
+						}
+					}
+				}
+
+				exposure = map.addSource('bldg', {
+					type: 'geojson',
+					// URL for the value for the `data` property.
+					data: 'https://upri-noah.s3.ap-southeast-1.amazonaws.com/critical_facilities/bldgs-qc-faci.geojson',
+				})
+
+				map.addSource('100yr', {
+					type: 'geojson',
+					// URL for the value for the `data` property.
+					data: 'https://upri-noah.s3.ap-southeast-1.amazonaws.com/critical_facilities/qc_fh_100yr.geojson',
+				})
+
+				map.addSource('5yr', {
+					type: 'geojson',
+					// URL for the value for the `data` property.
+					data: 'https://upri-noah.s3.ap-southeast-1.amazonaws.com/test/qc_fh_5yr.geojson',
+				})
+
+				map.addSource('25yr', {
+					type: 'geojson',
+					// Use a URL for the value for the `data` property.
+					data: 'https://upri-noah.s3.ap-southeast-1.amazonaws.com/test/qc_fh_25yr.geojson',
+				})
+
+				map.addSource('popu', {
+					type: 'geojson',
+					// Use a URL for the value for the `data` property.
+					data: 'https://upri-noah.s3.ap-southeast-1.amazonaws.com/test/QC_FB_Bgy.geojson',
+				})
+
+				var haz_feat
+				var bldg_feat
+				var bldg_popup
+				var popu_popup
+				var haz_popup
+				var popu_int_popup
+				var bldg_int_popup
+
+				map.on('click', '5yr', (e) => {
+					// Copy coordinates array.
+					const coordinates = e.features[0].geometry.coordinates.slice()
+					let level = e.features[0].properties.Var
+					if (level == 1) {
+						level = 'Low'
+					} else if (level == 2) {
+						level = 'Moderate'
+					} else if (level == 3) {
+						level = 'High'
+					}
+					// If the map is zoomed out  ultiple
+					// copies of the feature are visible, the popup appears
+					// over the copy being pointed to.
+					while (Math.abs(e.lngLat.lng - coordinates[0]) > 180) {
+						coordinates[0] += e.lngLat.lng > coordinates[0] ? 360 : -360
+					}
+
+					haz_popup = new mapboxgl.Popup()
+						.setLngLat(e.lngLat)
+						// .setHTML("<b>Flood Hazard Level:</b> "+level)
+						.setHTML(
+							'<table><tr> <th>Flood Hazard Level</th> </tr><tr>   <td>' +
+								level +
+								'</td></tr></table>'
+						)
+
+						.addTo(map)
+				})
+
+				map.on('click', '25yr', (e) => {
+					// Copy coordinates array.
+					const coordinates = e.features[0].geometry.coordinates.slice()
+					let level = e.features[0].properties.Var
+					if (level == 1) {
+						level = 'Low'
+					} else if (level == 2) {
+						level = 'Moderate'
+					} else if (level == 3) {
+						level = 'High'
+					}
+					// Ensure that if the map is zoomed out such that multiple
+					// copies of the feature are visible, the popup appears
+					// over the copy being pointed to.
+					while (Math.abs(e.lngLat.lng - coordinates[0]) > 180) {
+						coordinates[0] += e.lngLat.lng > coordinates[0] ? 360 : -360
+					}
+
+					haz_popup = new mapboxgl.Popup()
+						.setLngLat(e.lngLat)
+						// .setHTML("<b>Flood Hazard Level:</b> "+level)
+						.setHTML(
+							'<table><tr> <th>Flood Hazard Level</th> </tr><tr>   <td>' +
+								level +
+								'</td></tr></table>'
+						)
+
+						.addTo(map)
+				})
+
+				map.on('click', '100yr', (e) => {
+					// Copy coordinates array.
+					const coordinates = e.features[0].geometry.coordinates.slice()
+					let level = e.features[0].properties.Var
+					if (level == 1) {
+						level = 'Low'
+					} else if (level == 2) {
+						level = 'Moderate'
+					} else if (level == 3) {
+						level = 'High'
+					}
+					// Ensure that if the map is zoomed out such that multiple
+					// copies of the feature are visible, the popup appears
+					// over the copy being pointed to.
+					while (Math.abs(e.lngLat.lng - coordinates[0]) > 180) {
+						coordinates[0] += e.lngLat.lng > coordinates[0] ? 360 : -360
+					}
+
+					haz_popup = new mapboxgl.Popup()
+						.setLngLat(e.lngLat)
+						// .setHTML("<b>Flood Hazard Level:</b> "+level)
+						.setHTML(
+							'<table><tr> <th>Flood Hazard Level</th> </tr><tr>   <td>' +
+								level +
+								'</td></tr></table>'
+						)
+
+						.addTo(map)
+				})
+
+				map.on('click', 'bldg', (e) => {
+					// Copy coordinates array.
+					const coordinates = e.features[0].geometry.coordinates.slice()
+					const bldg_name = e.features[0].properties['Name_2']
+
+					// Ensure that if the map is zoomed out such that multiple
+					// copies of the feature are visible, the popup appears
+					// over the copy being pointed to.
+					while (Math.abs(e.lngLat.lng - coordinates[0]) > 180) {
+						coordinates[0] += e.lngLat.lng > coordinates[0] ? 360 : -360
+					}
+
+					if (popu_popup != undefined) {
+						popu_popup.remove()
+					}
+					if (haz_popup != undefined) {
+						haz_popup.remove()
+					}
+					bldg_popup = new mapboxgl.Popup()
+						.setLngLat(e.lngLat)
+						// .setHTML("<b>Building Name:</b> "+ bldg_name)
+						.setHTML(
+							'<table><tr>  <th>Building</th>  </tr><tr>  <td>' +
+								bldg_name +
+								'</td></tr></table>'
+						)
+
+						.addTo(map)
+				})
+
+				map.on('click', 'popu', (e) => {
+					// Copy coordinates array.
+					const coordinates = e.features[0].geometry.coordinates.slice()
+					const brgy = e.features[0].properties['Bgy_Name']
+					const pop_2015 = e.features[0].properties['Pop2015']
+
+					// Ensure that if the map is zoomed out such that multiple
+					// copies of the feature are visible, the popup appears
+					// over the copy being pointed to.
+					while (Math.abs(e.lngLat.lng - coordinates[0]) > 180) {
+						coordinates[0] += e.lngLat.lng > coordinates[0] ? 360 : -360
+					}
+
+					if (bldg_popup != undefined) {
+						bldg_popup.remove()
+					}
+					popu_popup = new mapboxgl.Popup()
+						.setLngLat(e.lngLat)
+						// .setHTML("<b>Building Name:</b> "+ bldg_name)
+						.setHTML(
+							'<table><tr>  <th>Barangay Name</th> <th>Population 2015</th>   </tr><tr>  <td>' +
+								brgy +
+								'</td><td>' +
+								pop_2015 +
+								'</td></tr></tr></table>'
+						)
+
+						.addTo(map)
+				})
+
+				let intersect_layer
+				let outline_layer
+
+				class ToggleControl {
+					constructor(options) {
+						this._options = Object.assign({}, this._options, options)
+					}
+
+					onAdd(map, cs) {
+						this.map = map
+						this.container = document.createElement('div')
+						this.container.className = `${this._options.className}`
+
+						// const button = this._createButton('monitor_button')
+						// this.container.appendChild(button);
+						return this.container
+					}
+				}
+
+				var modal = document.getElementById('myModal')
+				var span = document.getElementsByClassName('close')[0]
+
+				// When the user clicks on <span> (x), close the modal
+				span.onclick = function () {
+					modal.style.display = 'none'
+				}
+
+				// When the user clicks anywhere outside of the modal, close it
+				window.onclick = function (event) {
+					if (event.target == modal) {
+						modal.style.display = 'none'
+					}
+				}
+
+				function separator(numb) {
+					// console.log(numb)
+					var str = numb.toString().split('.')
+					str[0] = str[0].replace(/\B(?=(\d{3})+(?!\d))/g, ',')
+					return str.join('.')
+				}
+
+				const toggleControl = new ToggleControl({
+					className: 'mapboxgl-ctrl',
+				})
+				map.addControl(toggleControl, 'bottom-left')
+
+				map.on('click', 'bldg_intersect_5yr', (e) => {
+					// Copy coordinates array.
+					const coordinates = e.features[0].geometry.coordinates.slice()
+					const bldg_name = e.features[0].properties['Name']
+					const area = e.features[0].properties['Area']
+					const all = e.features[0].properties['All Hazard']
+					const percent = e.features[0].properties['Percentage of Exposed']
+					const score = e.features[0].properties['Exposure Score']
+					if (bldg_popup != undefined) {
+						bldg_popup.remove()
+					}
+					if (haz_popup != undefined) {
+						haz_popup.remove()
+					}
+					if (popu_popup != undefined) {
+						popu_popup.remove()
+					}
+					if (popu_int_popup != undefined) {
+						popu_int_popup.remove()
+					}
+					// Ensure that if the map is zoomed out such that multiple
+					// copies of the feature are visible, the popup appears
+					// over the copy being pointed to.
+					while (Math.abs(e.lngLat.lng - coordinates[0]) > 180) {
+						coordinates[0] += e.lngLat.lng > coordinates[0] ? 360 : -360
+					}
+
+					bldg_int_popup = new mapboxgl.Popup()
+						.setLngLat(e.lngLat)
+						.setHTML(
+							'<table><tr><th>Barangay Name</th><td>' +
+								bldg_name +
+								'</td></tr><tr><th>Area</th><td>' +
+								separator(area) +
+								'</td></tr><tr><th>Population Affected by All Flood Hazard (Area)</th><td>' +
+								separator(all) +
+								'</td></tr><tr><th>Percentage of Exposed Population</th><td>' +
+								percent +
+								'</td><tr><th>Exposure Score</th><td>' +
+								score +
+								'</td></tr></tr></table>'
+						)
+						// .setHTML("<table><tr><th>Building Name</th><td>"+bldg_name+"</td></tr><tr><th>Low Hazard</th><td>"+low+"</td></tr><tr><th>Medium Hazard</th><td>"+medium+"</td></tr><tr><th>High Hazard</th><td>"+high+"</td><tr><th>All Hazard</th><td>"+overall+"</td></tr></tr></table>")
+						.addTo(map)
+				})
+
+				map.on('click', 'bldg_intersect_25yr', (e) => {
+					// Copy coordinates array.
+					const coordinates = e.features[0].geometry.coordinates.slice()
+					const bldg_name = e.features[0].properties['Name']
+					const area = e.features[0].properties['Area']
+					const all = e.features[0].properties['All Hazard']
+					const percent = e.features[0].properties['Percentage of Exposed']
+					const score = e.features[0].properties['Exposure Score']
+					const mag = e.features[0].properties['Mag']
+					if (bldg_popup != undefined) {
+						bldg_popup.remove()
+					}
+					if (haz_popup != undefined) {
+						haz_popup.remove()
+					}
+					if (popu_popup != undefined) {
+						popu_popup.remove()
+					}
+					if (popu_int_popup != undefined) {
+						popu_int_popup.remove()
+					}
+					// Ensure that if the map is zoomed out such that multiple
+					// copies of the feature are visible, the popup appears
+					// over the copy being pointed to.
+					while (Math.abs(e.lngLat.lng - coordinates[0]) > 180) {
+						coordinates[0] += e.lngLat.lng > coordinates[0] ? 360 : -360
+					}
+
+					bldg_int_popup = new mapboxgl.Popup()
+						.setLngLat(e.lngLat)
+						.setHTML(
+							'<table><tr><th>Barangay Name</th><td>' +
+								bldg_name +
+								'</td></tr><tr><th>Area</th><td>' +
+								separator(area) +
+								'</td></tr><tr><th>Population Affected by All Flood Hazard (Area)</th><td>' +
+								separator(all) +
+								'</td></tr><tr><th>Percentage of Exposed Population</th><td>' +
+								percent +
+								'</td><tr><th>Exposure Score</th><td>' +
+								score +
+								'</td></tr><tr><th>Magnitude</th><td>' +
+								mag +
+								'</td></tr></tr></table>'
+						)
+						// .setHTML("<table><tr><th>Building Name</th><td>"+bldg_name+"</td></tr><tr><th>Low Hazard</th><td>"+low+"</td></tr><tr><th>Medium Hazard</th><td>"+medium+"</td></tr><tr><th>High Hazard</th><td>"+high+"</td><tr><th>All Hazard</th><td>"+overall+"</td></tr></tr></table>")
+						.addTo(map)
+				})
+
+				map.on('click', 'bldg_intersect_100yr', (e) => {
+					// Copy coordinates array.
+					const coordinates = e.features[0].geometry.coordinates.slice()
+					const bldg_name = e.features[0].properties['Name']
+					const area = e.features[0].properties['Area']
+					const all = e.features[0].properties['All Hazard']
+					const percent = e.features[0].properties['Percentage of Exposed']
+					const score = e.features[0].properties['Exposure Score']
+					const mag = e.features[0].properties['Mag']
+					if (bldg_popup != undefined) {
+						bldg_popup.remove()
+					}
+					if (haz_popup != undefined) {
+						haz_popup.remove()
+					}
+					if (popu_popup != undefined) {
+						popu_popup.remove()
+					}
+					if (popu_int_popup != undefined) {
+						popu_int_popup.remove()
+					}
+					// Ensure that if the map is zoomed out such that multiple
+					// copies of the feature are visible, the popup appears
+					// over the copy being pointed to.
+					while (Math.abs(e.lngLat.lng - coordinates[0]) > 180) {
+						coordinates[0] += e.lngLat.lng > coordinates[0] ? 360 : -360
+					}
+
+					bldg_int_popup = new mapboxgl.Popup()
+						.setLngLat(e.lngLat)
+						.setHTML(
+							'<table><tr><th>Barangay Name</th><td>' +
+								bldg_name +
+								'</td></tr><tr><th>Area</th><td>' +
+								separator(area) +
+								'</td></tr><tr><th>Population Affected by All Flood Hazard (Area)</th><td>' +
+								separator(all) +
+								'</td></tr><tr><th>Percentage of Exposed Population</th><td>' +
+								percent +
+								'</td><tr><th>Exposure Score</th><td>' +
+								score +
+								'</td></tr><tr><th>Magnitude</th><td>' +
+								mag +
+								'</td></tr></tr></table>'
+						)
+						// .setHTML("<table><tr><th>Building Name</th><td>"+bldg_name+"</td></tr><tr><th>Low Hazard</th><td>"+low+"</td></tr><tr><th>Medium Hazard</th><td>"+medium+"</td></tr><tr><th>High Hazard</th><td>"+high+"</td><tr><th>All Hazard</th><td>"+overall+"</td></tr></tr></table>")
+						.addTo(map)
+				})
+
+				map.on('click', 'pop_intersect_5yr', (e) => {
+					// Copy coordinates array.
+					const coordinates = e.features[0].geometry.coordinates.slice()
+					const brgy_name = e.features[0].properties['Name']
+					const area = e.features[0].properties['Area']
+					const all = e.features[0].properties['All Hazard']
+					const percent = e.features[0].properties['Percentage of Exposed']
+					const score = e.features[0].properties['Exposure Score']
+					if (bldg_popup != undefined) {
+						bldg_popup.remove()
+					}
+					if (haz_popup != undefined) {
+						haz_popup.remove()
+					}
+					if (bldg_int_popup != undefined) {
+						bldg_int_popup.remove()
+					}
+					if (popu_popup != undefined) {
+						popu_popup.remove()
+					}
+					// Ensure that if the map is zoomed out such that multiple
+					// copies of the feature are visible, the popup appears
+					// over the copy being pointed to.
+					while (Math.abs(e.lngLat.lng - coordinates[0]) > 180) {
+						coordinates[0] += e.lngLat.lng > coordinates[0] ? 360 : -360
+					}
+
+					popu_int_popup = new mapboxgl.Popup()
+						.setLngLat(e.lngLat)
+						.setHTML(
+							'<table><tr><th>Barangay Name</th><td>' +
+								brgy_name +
+								'</td></tr><tr><th>Area</th><td>' +
+								separator(area) +
+								'</td></tr><tr><th>Population Affected by All Flood Hazard</th><td>' +
+								separator(all) +
+								'</td></tr><tr><th>Percentage of Exposed Population</th><td>' +
+								percent +
+								'</td><tr><th>Exposure Score</th><td>' +
+								score +
+								'</td></tr></tr></table>'
+						)
+						.addTo(map)
+				})
+
+				map.on('click', 'pop_intersect_25yr', (e) => {
+					// Copy coordinates array.
+					const coordinates = e.features[0].geometry.coordinates.slice()
+					const brgy_name = e.features[0].properties['Name']
+					const area = e.features[0].properties['Area']
+					const all = e.features[0].properties['All Hazard']
+					const percent = e.features[0].properties['Percentage of Exposed']
+					const score = e.features[0].properties['Exposure Score']
+					if (bldg_popup != undefined) {
+						bldg_popup.remove()
+					}
+					if (haz_popup != undefined) {
+						haz_popup.remove()
+					}
+					if (bldg_int_popup != undefined) {
+						bldg_int_popup.remove()
+					}
+					if (popu_popup != undefined) {
+						popu_popup.remove()
+					}
+					// Ensure that if the map is zoomed out such that multiple
+					// copies of the feature are visible, the popup appears
+					// over the copy being pointed to.
+					while (Math.abs(e.lngLat.lng - coordinates[0]) > 180) {
+						coordinates[0] += e.lngLat.lng > coordinates[0] ? 360 : -360
+					}
+
+					popu_int_popup = new mapboxgl.Popup()
+						.setLngLat(e.lngLat)
+						.setHTML(
+							'<table><tr><th>Barangay Name</th><td>' +
+								brgy_name +
+								'</td></tr><tr><th>Area</th><td>' +
+								separator(area) +
+								'</td></tr><tr><th>Population Affected by All Flood Hazard</th><td>' +
+								separator(all) +
+								'</td></tr><tr><th>Percentage of Exposed Population</th><td>' +
+								percent +
+								'</td><tr><th>Exposure Score</th><td>' +
+								score +
+								'</td></tr></tr></table>'
+						)
+						.addTo(map)
+				})
+
+				map.on('click', 'pop_intersect_100yr', (e) => {
+					// Copy coordinates array.
+					const coordinates = e.features[0].geometry.coordinates.slice()
+					const brgy_name = e.features[0].properties['Name']
+					const area = e.features[0].properties['Area']
+					const all = e.features[0].properties['All Hazard']
+					const percent = e.features[0].properties['Percentage of Exposed']
+					const score = e.features[0].properties['Exposure Score']
+					if (bldg_popup != undefined) {
+						bldg_popup.remove()
+					}
+					if (haz_popup != undefined) {
+						haz_popup.remove()
+					}
+					if (bldg_int_popup != undefined) {
+						bldg_int_popup.remove()
+					}
+					if (popu_popup != undefined) {
+						popu_popup.remove()
+					}
+					// Ensure that if the map is zoomed out such that multiple
+					// copies of the feature are visible, the popup appears
+					// over the copy being pointed to.
+					while (Math.abs(e.lngLat.lng - coordinates[0]) > 180) {
+						coordinates[0] += e.lngLat.lng > coordinates[0] ? 360 : -360
+					}
+
+					popu_int_popup = new mapboxgl.Popup()
+						.setLngLat(e.lngLat)
+						.setHTML(
+							'<table><tr><th>Barangay Name</th><td>' +
+								brgy_name +
+								'</td></tr><tr><th>Area</th><td>' +
+								separator(area) +
+								'</td></tr><tr><th>Population Affected by All Flood Hazard</th><td>' +
+								separator(all) +
+								'</td></tr><tr><th>Percentage of Exposed Population</th><td>' +
+								percent +
+								'</td><tr><th>Exposure Score</th><td>' +
+								score +
+								'</td></tr></tr></table>'
+						)
+						.addTo(map)
+				})
+			})
+		</script>
+	</body>
+</html>
