@@ -537,33 +537,29 @@
 					}
 				}
 
+			 // add GIS data to the map
 				exposure = map.addSource('bldg', {
 					type: 'geojson',
-					// URL for the value for the `data` property.
 					data: 'https://upri-noah.s3.ap-southeast-1.amazonaws.com/critical_facilities/bldgs-qc-faci.geojson',
 				})
 
 				map.addSource('100yr', {
 					type: 'geojson',
-					// URL for the value for the `data` property.
 					data: 'https://upri-noah.s3.ap-southeast-1.amazonaws.com/critical_facilities/qc_fh_100yr.geojson',
 				})
 
 				map.addSource('5yr', {
 					type: 'geojson',
-					// URL for the value for the `data` property.
 					data: 'https://upri-noah.s3.ap-southeast-1.amazonaws.com/test/qc_fh_5yr.geojson',
 				})
 
 				map.addSource('25yr', {
 					type: 'geojson',
-					// Use a URL for the value for the `data` property.
 					data: 'https://upri-noah.s3.ap-southeast-1.amazonaws.com/test/qc_fh_25yr.geojson',
 				})
 
 				map.addSource('popu', {
 					type: 'geojson',
-					// Use a URL for the value for the `data` property.
 					data: 'https://upri-noah.s3.ap-southeast-1.amazonaws.com/test/QC_FB_Bgy.geojson',
 				})
 
@@ -586,8 +582,8 @@
 					} else if (level == 3) {
 						level = 'High'
 					}
-					// If the map is zoomed out, multiple copies of the
-					// feature are visible, the popup appears
+					// Ensure that if the map is zoomed out such that multiple
+					// copies of the feature are visible, the popup appears
 					// over the copy being pointed to.
 					while (Math.abs(e.lngLat.lng - coordinates[0]) > 180) {
 						coordinates[0] += e.lngLat.lng > coordinates[0] ? 360 : -360
