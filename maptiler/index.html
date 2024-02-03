@@ -1,0 +1,71 @@
+<html>
+  <head>
+    <script src="https://unpkg.com/deck.gl@latest/dist.min.js"></script>
+
+    <script src="https://unpkg.com/maplibre-gl@2.4.0/dist/maplibre-gl.js"></script>
+    <link href="https://unpkg.com/maplibre-gl@2.4.0/dist/maplibre-gl.css" rel="stylesheet" />
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/chroma-js/2.4.2/chroma.min.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+    <style>
+      body {
+        margin: 0;
+        padding: 0;
+      }
+      #map {
+        height: 100vh;
+        width: 100vw;
+      }
+    </style>
+  </head>
+
+  <body>
+    <div id="map"></div>
+  </body>
+
+  <script type="text/javascript">
+    async function initialize() {
+      const key = 'veNWnijCyvBVdI6wcE0O';
+
+      // Create deck.gl map
+      const deckgl = new deck.DeckGL({
+        container: 'map',
+        map: maplibregl,
+        mapStyle: `https://api.maptiler.com/maps/backdrop/style.json?key=${key}`,
+        initialViewState: {
+          longitude: -74.0115,
+          latitude: 40.7082,
+          zoom: 14,
+          pitch: 60
+        },
+        controller: true,
+        layers: [
+          new deck.MVTLayer({
+            data: `https://api.maptiler.com/tiles/v3/{z}/{x}/{y}.pbf?key=${key}`,
+            loadOptions: {
+              mvt: {
+                layers: ['building']
+              }
+            },
+            minZoom: 0,
+            maxZoom: 15,
+            getLineColor: f => {
+              return f.properties.colour && chroma.valid(f.properties.colour) ? chroma(f.properties.colour).rgb() : [140, 170, 180]
+            },
+            getFillColor: f => {
+              return f.properties.colour && chroma.valid(f.properties.colour) ? chroma(f.properties.colour).rgb() : [140, 170, 180]
+            },
+            getLineWidth: 1,
+            lineWidthMinPixels: 1,
+            getElevation: f => {
+              return f.properties.render_height ? f.properties.render_height : 0
+            },
+            extruded: true,
+            wireframe: true
+          })
+        ]
+      });
+    }
+
+    initialize();
+  </script>
+</html>
